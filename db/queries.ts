@@ -153,7 +153,18 @@ export const updateTransaction = async (tran: Transaction) => {
     .limit(1)
 
   // Step 2: Update the transaction row itself
-  const updatedTransaction = await db.update(transactions).set({ ...tran, balance: previousTrans[0].balance! - tran.amount}).where(eq(transactions.id, tran.id!)).returning();
+  const updatedTransaction = await db.update(transactions).
+  set({
+     ...tran, 
+     balance: tran.type === "income" 
+    ? 
+    previousTrans[0].balance! + tran.amount 
+    : 
+    previousTrans[0].balance! - tran.amount
+
+    })
+  .where(eq(transactions.id, tran.id!))
+  .returning();
 
   // Step 3: Calculate delta if type/amount changed
   let delta = 0;
@@ -201,7 +212,6 @@ const deleteBalance = async (transId: string) => {
 
 export const removeTransaction = async (transId: string) => {
     try {
-        // Get the transaction first
         const [tx] = await db
             .select()
             .from(transactions)
@@ -215,25 +225,18 @@ export const removeTransaction = async (transId: string) => {
 
         const effect = tx.type === "income" ? -tx.amount : tx.amount;
 
-        // Start deleting
-        await db.transaction(async (txDb) => {   // Optional but recommended
-            // Delete from balance_histories first
-            await txDb
-                .delete(balance_histories)
-                .where(eq(balance_histories.transaction_id, transId));
+        // 1. Delete balance history entry for this transaction
+        await db.delete(balance_histories)
+            .where(eq(balance_histories.transaction_id, transId));
 
-            // Delete the transaction
-            await txDb
-                .delete(transactions)
-                .where(eq(transactions.id, transId));
+        // 2. Delete the transaction itself
+        await db.delete(transactions)
+            .where(eq(transactions.id, transId));
 
-            // Shift remaining balances
-            await shiftBalances(tx.user_id!, tx.date, effect);
-        });
-            // delete from balance 
-            await deleteBalance(transId)
+        // 3. Shift all later balances
+        await shiftBalances(tx.user_id!, tx.date, effect);
 
-        return tx; // return the deleted transaction data
+        return tx;
 
     } catch (error) {
         console.error("Error in removeTransaction:", error);
@@ -242,30 +245,53 @@ export const removeTransaction = async (transId: string) => {
 };
 
 
-
 export const addBalanceToHistory = async (item: BalanceHistory) => {
     const newItem = await db.insert(balance_histories).values(item).returning();
     return newItem;
 }
 
 export const addCategory = async (category: Category) => {
+
+    const allCategories = await db.select().from(categories)
+
+    const duplicateName = allCategories.some((cate) => cate.name === category.name )
+
+    if(duplicateName){
+        return {
+            id: "duplicate naming",
+            name: "duplicate naming"
+        };
+    }
+
     const newCategory = await db.insert(categories).values(category).returning();
-    return newCategory;
+    return newCategory[0];
 }
 
 export const updateCategory = async (category: Category) => {
-    const foundCategory = await db.select().from(categories).where(eq(categories.id, category.id!))
+    const allCategories = await db.select().from(categories)
+    const foundCategory = allCategories.find((cate) => cate.id === category.id)
     if(!foundCategory) return null
 
-    const updatedCategory = await db.update(categories).set(category).where(eq(categories.id, category.id!))
-    return updatedCategory
+    
+    const duplicateName = allCategories.some((cate) => cate.name === category.name )
+
+    if(duplicateName){
+        return {
+            id: "duplicate naming",
+            name: "duplicate naming"
+        };
+    }
+
+    const updatedCategory = await db.update(categories).set(category).where(eq(categories.id, category.id!)).returning()
+
+    return updatedCategory[0]
 }
 
-export const deleteCategory = async (category: Category) => {
-    const foundCategory = await db.select().from(categories).where(eq(categories.id, category.id!))
-    if(!foundCategory) return null
-    const deletedCategroy = await db.delete(categories).where(eq(categories.id, category.id!))
-    return deleteCategory
+export const deleteCategory = async (id: string) => {
+    const foundCategory = await db.select().from(categories).where(eq(categories.id, id))
+    if(!foundCategory[0]) return null
+    const deletedCategory = await db.delete(categories).where(eq(categories.id, id)).returning()
+    return deletedCategory[0]
 }
 
 

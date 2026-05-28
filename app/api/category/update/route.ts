@@ -4,11 +4,27 @@ import { updateCategory } from "../../../../db/queries";
 
 export const PUT = async (req: Request) => {
 
-    const category = await req.json();
+    try {
 
-    const updatdCategory = await updateCategory(category);
+        const { id, name } = await req.json();
 
-    if(!updatdCategory) return NextResponse.json({ message: "category not found"}, { status: 404});
+        if(!id || !name ){
+            return NextResponse.json({ message: "missing required fields"}, { status: 400});
+        }
 
-    return NextResponse.json({ message: "category updated"}, { status: 200});
+        const updatedCategory = await updateCategory({ id, name});
+
+        if(!updatedCategory) return NextResponse.json({ message: "category not found"}, { status: 404});
+
+        if(updatedCategory.name === "duplicate naming" && updatedCategory.id === "duplicate naming"){
+        return NextResponse.json({ message: "category with name already exists"}, {status: 400})
+        };
+
+        return NextResponse.json({ message: "category updated", category: updatedCategory}, { status: 200});
+
+    } 
+    catch(e){
+        console.log(e)
+        return NextResponse.json({ message: "Server Error"}, { status: 500});
+    }
 };

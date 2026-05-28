@@ -10,7 +10,7 @@ export const users = pgTable("users", {
 
 export const categories = pgTable("categories", {
     id: uuid("id").primaryKey().defaultRandom(),
-    name: varchar("name", {})
+    name: varchar("name", {}).unique()
 })
 
 export const typeEnum = pgEnum("type", ["expense", "income"])
