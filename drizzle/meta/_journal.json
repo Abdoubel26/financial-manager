@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1779778423682,
+      "tag": "0000_narrow_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779781834160,
+      "tag": "0001_dry_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779807622242,
+      "tag": "0002_secret_harry_osborn",
+      "breakpoints": true
+    }
+  ]
+}
