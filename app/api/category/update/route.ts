@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { updateCategory } from "../../../../db/queries";
 
 
-const UPDATE = async (req: Request) => {
+export const PUT = async (req: Request) => {
 
     const category = await req.json();
 

@@ -17,7 +17,7 @@ export const typeEnum = pgEnum("type", ["expense", "income"])
 
 export const transactions = pgTable("transactions", {
     id: uuid("id").primaryKey().defaultRandom(),
-    descripiton: varchar("description"),
+    description: varchar("description").notNull(),
     date: timestamp("date").defaultNow().notNull(),
     type: typeEnum("type").notNull(),
     amount: integer("amount").notNull(),

@@ -1,6 +1,6 @@
 import { users, transactions, categories, balance_histories } from "./schema";
 import { db } from "./index";
-import { desc, eq, and, gt } from "drizzle-orm";
+import { desc, eq, and, gt, lt } from "drizzle-orm";
 
 
 export const addUser = async (user: User) => {
@@ -18,7 +18,9 @@ export const findUserById = async (id: string) => {
     return foundUser;
 };
 
-export const addTransaction = async (transaction: Transaction) => {
+export const addTransaction = async (transaction: Transaction): Promise<Transaction | null> => {
+    
+    if(!transaction.amount || !transaction.date || !transaction.description || !transaction.user_id || !transaction.type) return null;
 
     const latestTrans = await db.select()
     .from(transactions)
@@ -26,56 +28,69 @@ export const addTransaction = async (transaction: Transaction) => {
     .orderBy(desc(transactions.date))
     .limit(1);
 
-    if(!latestTrans[0]){
+    const previousTrans = await db.select()
+    .from(transactions)
+    .where(and(eq(transactions.user_id, transaction.user_id), lt(transactions.date, transaction.date)))
+    .orderBy(desc(transactions.date))
+    .limit(1)
+
+    if(!latestTrans[0] || !previousTrans[0]){
+        if(!transaction.balance) return null;
         const newTrans = (await db.insert(transactions).values(transaction).returning())[0];
-        await addBalanceToHistory({ date: newTrans.date, balance: newTrans.balance, transaction_id: newTrans.id, user_id: newTrans.user_id!});
-        return;
+        await addBalanceToHistory({
+             date: newTrans.date, 
+             balance: newTrans.balance!, 
+             transaction_id: newTrans.id, 
+             user_id: newTrans.user_id!
+            });
+        return newTrans as Transaction;
     }
 
     if( latestTrans[0].date <= transaction.date){
-       
-        const newTrans = (await db.insert(transactions).values(transaction).returning())[0];
-        if(transaction.type === "expense" && latestTrans[0].date <= transaction.date ) {
+        if(transaction.type === "expense" ) {
+            const newTrans = (await db.insert(transactions).values({ ...transaction, balance: latestTrans[0].balance! - transaction.amount }).returning())[0];
             const newBalance = {
             date: transaction.date,
             user_id: transaction.user_id,
             transaction_id: newTrans.id,
-            balance: latestTrans[0].balance - transaction.amount
+            balance: latestTrans[0].balance! - transaction.amount
             }
             await addBalanceToHistory(newBalance);
+            return newTrans as Transaction;
         }
-        else if( transaction.type === "income" && latestTrans[0].date <= transaction.date) {
+        else if( transaction.type === "income") {
+            const newTrans = (await db.insert(transactions).values({ ...transaction, balance: latestTrans[0].balance! + transaction.amount }).returning())[0];
             const newBalance = {
             date: transaction.date,
             user_id: transaction.user_id,
             transaction_id: newTrans.id,
-            balance: latestTrans[0].balance + transaction.amount
+            balance: latestTrans[0].balance! + transaction.amount
             };
             await addBalanceToHistory(newBalance);
+            return newTrans as Transaction;
         }
-        return newTrans;
     } else if (latestTrans[0].date > transaction.date){
         if(transaction.type === "expense"){
-
+            const newTrans = (await db.insert(transactions).values({ ...transaction, balance: previousTrans[0].balance! - transaction.amount}).returning())[0];
             const transAfters = await db.select()
             .from(transactions)
             .where(and(eq(transactions.user_id, transaction.user_id), gt(transactions.date, transaction.date)))
-            .orderBy(transactions.date)
+            .orderBy(transactions.date);
 
             const balanceAfters = await db.select()
             .from(balance_histories)
-            .where(and(eq(balance_histories.user_id, transaction.user_id), gt(balance_histories.date, transaction.date)))
+            .where(and(eq(balance_histories.user_id, transaction.user_id), gt(balance_histories.date, transaction.date)));
 
                
             for (const tran of transAfters){
-                const newBalance = tran.balance - transaction.amount
+                const newBalance = tran.balance! - transaction.amount;
                 await db.update(transactions)
                 .set({ balance: newBalance})
                 .where(eq(transactions.id, tran.id))
-            }
+            };
 
             for (const blnc of balanceAfters){
-                const newBalance = blnc.balance - transaction.amount
+                const newBalance = blnc.balance - transaction.amount;
                 await db.update(balance_histories)
                 .set({ balance: newBalance})
                 .where(
@@ -83,27 +98,28 @@ export const addTransaction = async (transaction: Transaction) => {
                         eq(balance_histories.transaction_id, blnc.transaction_id!), 
                         eq(balance_histories.user_id, blnc.user_id!)
                     )
-                )
-            }
-
+                );
+            };
+            return newTrans as Transaction;
         }
         else if(transaction.type === "income"){
-             const transAfters = await db.select()
+            const newTrans = (await db.insert(transactions).values({ ...transaction, balance: previousTrans[0].balance! + transaction.amount}).returning())[0];
+            const transAfters = await db.select()
             .from(transactions)
             .where(and(eq(transactions.user_id, transaction.user_id), gt(transactions.date, transaction.date)))
-            .orderBy(transactions.date)
+            .orderBy(transactions.date);
 
             const balanceAfters = await db.select()
             .from(balance_histories)
-            .where(and(eq(balance_histories.user_id, transaction.user_id), gt(balance_histories.date, transaction.date)))
+            .where(and(eq(balance_histories.user_id, transaction.user_id), gt(balance_histories.date, transaction.date)));
 
             
             for (const tran of transAfters){
-                const newBalance = tran.balance + transaction.amount
+                const newBalance = tran.balance! + transaction.amount
                 await db.update(transactions)
                 .set({ balance: newBalance})
                 .where(eq(transactions.id, tran.id))
-            }
+            };
 
                
             for (const blnc of balanceAfters){
@@ -115,19 +131,29 @@ export const addTransaction = async (transaction: Transaction) => {
                         eq(balance_histories.transaction_id, blnc.transaction_id!), 
                         eq(balance_histories.user_id, blnc.user_id!)
                     )
-                )
-            }
-        }
-    }
-}
+                );
+            };
+        };
+    };
+    return null;
+};
+
+// subtract the new amount from the previous one
 
 export const updateTransaction = async (tran: Transaction) => {
   // Step 1: Get the old transaction
   const oldTx = await db.select().from(transactions).where(eq(transactions.id, tran.id!)).limit(1);
   if (!oldTx[0]) return null;
 
+  
+    const previousTrans = await db.select()
+    .from(transactions)
+    .where(and(eq(transactions.user_id, tran.user_id), lt(transactions.date, tran.date)))
+    .orderBy(desc(transactions.date))
+    .limit(1)
+
   // Step 2: Update the transaction row itself
-  const updatedTransaction = await db.update(transactions).set(tran).where(eq(transactions.id, tran.id!)).returning();
+  const updatedTransaction = await db.update(transactions).set({ ...tran, balance: previousTrans[0].balance! - tran.amount}).where(eq(transactions.id, tran.id!)).returning();
 
   // Step 3: Calculate delta if type/amount changed
   let delta = 0;
@@ -151,7 +177,7 @@ export const shiftBalances = async (userId: string, date: Date, delta: number) =
     .orderBy(transactions.date);
 
   for (const tran of transAfters) {
-    const newBalance = tran.balance + delta;
+    const newBalance = tran.balance! + delta;
     await db.update(transactions).set({ balance: newBalance }).where(eq(transactions.id, tran.id));
   }
 
@@ -166,20 +192,53 @@ export const shiftBalances = async (userId: string, date: Date, delta: number) =
 };
 
 
+const deleteBalance = async (transId: string) => {
+    const deletedBalance = await db.delete(balance_histories).where(eq(balance_histories.transaction_id, transId)).returning();
+    if(!deletedBalance) console.log("Balance not found");
+    return deletedBalance
+}
+
+
 export const removeTransaction = async (transId: string) => {
-  const tx = await db.select().from(transactions).where(eq(transactions.id, transId)).limit(1);
-  if (!tx[0]) return null;
+    try {
+        // Get the transaction first
+        const [tx] = await db
+            .select()
+            .from(transactions)
+            .where(eq(transactions.id, transId))
+            .limit(1);
 
-  // Compute effect to reverse
-  const effect = tx[0].type === "income" ? -tx[0].amount : tx[0].amount;
+        if (!tx) {
+            console.log("Transaction not found with id:", transId);
+            return null;
+        }
 
-  //  Delete transaction
-  await db.delete(transactions).where(eq(transactions.id, transId));
+        const effect = tx.type === "income" ? -tx.amount : tx.amount;
 
-  // Shift balances after this date
-  await shiftBalances(tx[0].user_id!, tx[0].date, effect);
+        // Start deleting
+        await db.transaction(async (txDb) => {   // Optional but recommended
+            // Delete from balance_histories first
+            await txDb
+                .delete(balance_histories)
+                .where(eq(balance_histories.transaction_id, transId));
 
-  return tx[0];
+            // Delete the transaction
+            await txDb
+                .delete(transactions)
+                .where(eq(transactions.id, transId));
+
+            // Shift remaining balances
+            await shiftBalances(tx.user_id!, tx.date, effect);
+        });
+            // delete from balance 
+            await deleteBalance(transId)
+
+        return tx; // return the deleted transaction data
+
+    } catch (error) {
+        console.error("Error in removeTransaction:", error);
+        return null;
+    }
 };
 
 
@@ -208,3 +267,6 @@ export const deleteCategory = async (category: Category) => {
     const deletedCategroy = await db.delete(categories).where(eq(categories.id, category.id!))
     return deleteCategory
 }
+
+
+
