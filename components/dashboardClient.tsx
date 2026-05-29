@@ -1,18 +1,24 @@
 "use client"
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts"
-import { useRouter } from "next/navigation"
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import AddTransactionModal from "./addTransactionModal"
+import EditTransactionModal from "./editTransactionModal"
 
 type Props = {
   transactions: Transaction[]
   categories: Category[]
   balanceHistories: BalanceHistory[]
-  user: { name: string; email: string; image?: string; userId: string }
+  user: User
 }
 
 const COLORS = ["#6c5ce7","#1D9E75","#E24B4A","#EF9F27","#378ADD","#D4537E","#D85A30"]
 
-export default function DashboardClient({ transactions, balanceHistories, user }: Props) {
+export default function DashboardClient({ transactions, balanceHistories, user, categories }: Props) {
   const router = useRouter()
+
+  const [showModal, setShowModal] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
 
   // stat calculations
   const currentBalance = transactions.length > 0
@@ -59,6 +65,29 @@ export default function DashboardClient({ transactions, balanceHistories, user }
     await fetch("/api/auth/logout", { method: "POST" })
     router.push("/login")
   }
+
+  const handleDelete = async (transId: string) => {
+    if (!confirm("Are you sure you want to delete this transaction?")) {
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/transaction/delete", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transId })
+        });
+
+        if (res.ok) {
+            router.refresh(); // This will refetch the latest data from server component
+        } else {
+            const data = await res.json();
+            alert(data.message || "Failed to delete transaction");
+        }
+    } catch (error) {
+        alert("Something went wrong");
+    }
+};
 
   const initials = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
 
@@ -160,7 +189,10 @@ export default function DashboardClient({ transactions, balanceHistories, user }
 
       {/* recent transactions table */}
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-5">
+        <div className="w-full flex flex-row justify-between">
         <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-4">Recent transactions</p>
+        <p onClick={() => setShowModal(true)} className="font-bold text-white text-2xl cursor-pointer mb-6 hover:bg-gray-800 rounded-full px-2 pb-1 transition-all">+</p>
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 dark:border-neutral-800">
@@ -189,11 +221,42 @@ export default function DashboardClient({ transactions, balanceHistories, user }
                 <td className={`py-3 text-right font-medium ${t.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
                   {t.type === "income" ? "+" : "-"}{t.amount.toLocaleString()}
                 </td>
+                <td className="py-3 text-right space-x-3">
+                  <button
+                      onClick={() => setEditingTransaction(t)}
+                      className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                  >
+                      Edit
+                  </button>
+                  <button
+                      onClick={() => handleDelete(t.id!)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium"
+                  >
+                      Delete
+                  </button>
+               </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      { showModal &&
+        <AddTransactionModal
+          categories={categories}
+          userId={user.id!}
+          onClose={() => setShowModal(false)}
+          isFirstTransaction={transactions.length === 0}
+        />
+       };
+       {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          categories={categories}
+          userId={user.id!}
+          onClose={() => setEditingTransaction(null)}
+          />
+        )};
     </div>
   )
-}
+};
+

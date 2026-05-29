@@ -175,6 +175,7 @@ export const updateTransaction = async (tran: Transaction) => {
 
     // Step 4: Shift balances after this transaction’s date
     await shiftBalances(tran.user_id, oldTx[0].date, delta);
+    await deleteBalance(tran.id!)
   }
 
   return updatedTransaction;
@@ -250,16 +251,18 @@ export const addBalanceToHistory = async (item: BalanceHistory) => {
     return newItem;
 }
 
+
 export const addCategory = async (category: Category) => {
 
-    const allCategories = await db.select().from(categories)
+    const allCategories = await db.select().from(categories).where(eq(categories.user_id, category.user_id))
 
     const duplicateName = allCategories.some((cate) => cate.name === category.name )
 
     if(duplicateName){
         return {
             id: "duplicate naming",
-            name: "duplicate naming"
+            name: "duplicate naming",
+            user_id: "duplicate naming"
         };
     }
 
@@ -268,7 +271,7 @@ export const addCategory = async (category: Category) => {
 }
 
 export const updateCategory = async (category: Category) => {
-    const allCategories = await db.select().from(categories)
+    const allCategories = await db.select().from(categories).where(eq(categories.user_id, category.user_id))
     const foundCategory = allCategories.find((cate) => cate.id === category.id)
     if(!foundCategory) return null
 

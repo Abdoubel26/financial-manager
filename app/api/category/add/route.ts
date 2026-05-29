@@ -6,13 +6,13 @@ import { categories } from "@/db/schema";
 export const POST = async (req: Request) => {
 
     try {
-    const { name } = await req.json();
+    const { name, user_id } = await req.json();
 
     if(!name){
         return NextResponse.json({ message: "name missing"}, { status: 400});
     }
 
-    const addedCategory = await addCategory({ name });
+    const addedCategory = await addCategory({ name, user_id });
 
     if(addedCategory.name === "duplicate naming" && addedCategory.id === "duplicate naming"){
         return NextResponse.json({ message: "category with name already exists"}, {status: 400})

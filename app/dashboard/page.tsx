@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { transactions, categories, balance_histories } from "@/db/schema";
+import { transactions, categories, balance_histories, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import jwt, { JwtPayload } from "jsonwebtoken";
@@ -28,22 +28,22 @@ export default async function DashboardPage() {
 
   const { userId } = decoded
 
-  const [userTransactions, userCategories, userBalanceHistories, userResponse] = await Promise.all([
+  const [userTransactions, userCategories, userBalanceHistories, userResult] = await Promise.all([
     db.select().from(transactions).where(eq(transactions.user_id, userId)),
-    db.select().from(categories),
+    db.select().from(categories).where(eq(categories.user_id, userId)),
     db.select().from(balance_histories).where(eq(balance_histories.user_id, userId)),
-    fetch(`${process.env.NEXT_PUBLIC_URL}/api/user/me`, {
-        headers: { Cookie: `token=${token}` }  // forward the cookie
-    }).then(r => r.json())
-])
+    db.select().from(users).where(eq(users.id, userId)).limit(1)
+  ])
+
+if(!userResult[0]) redirect("/login");
+const user = userResult[0]
 
   return (
     <DashboardClient
         transactions={userTransactions as Transaction[]}
         categories={userCategories as Category[]}
         balanceHistories={userBalanceHistories as BalanceHistory[]}
-        user={{ userId, ...userResponse }}
+        user={{ ...user, image: user.image ?? undefined } }
     />
   )
 }
-

@@ -10,7 +10,8 @@ export const users = pgTable("users", {
 
 export const categories = pgTable("categories", {
     id: uuid("id").primaryKey().defaultRandom(),
-    name: varchar("name", {}).unique()
+    name: varchar("name").unique().notNull(), 
+    user_id: uuid("user_id").references(() => users.id, {onDelete: "cascade"})
 })
 
 export const typeEnum = pgEnum("type", ["expense", "income"])
@@ -22,10 +23,9 @@ export const transactions = pgTable("transactions", {
     type: typeEnum("type").notNull(),
     amount: integer("amount").notNull(),
     category: varchar("category").references(() => categories.name),
-    user_id: uuid("user_id").references(() => users.id), 
+    user_id: uuid("user_id").references(() => users.id, { onDelete: "cascade"}), 
     balance: integer("balance")
 })
-
 
 export const balance_histories = pgTable("totals_histories", {
     balance: integer("balance").notNull(),

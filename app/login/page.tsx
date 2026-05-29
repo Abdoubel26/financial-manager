@@ -28,7 +28,7 @@ function LoginPage() {
          email, password, 
         })
       })
-      const content = await res.json()
+      const content = await res.json().catch(() => null)
       console.log(content)
       switch(res.status){
         case 404:
@@ -48,7 +48,7 @@ function LoginPage() {
           name, email, password, image
         })
       });
-      const content = await res.json()
+      const content = await res.json().catch(() => null)
       console.log(content)
       switch(res.status){
         case 409:
