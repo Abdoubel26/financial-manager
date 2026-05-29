@@ -55,7 +55,7 @@ export default function EditTransactionModal({ transaction, categories, userId, 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 text-white bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-lg font-medium">Edit Transaction</h2>

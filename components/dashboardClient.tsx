@@ -221,16 +221,16 @@ export default function DashboardClient({ transactions, balanceHistories, user, 
                 <td className={`py-3 text-right font-medium ${t.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
                   {t.type === "income" ? "+" : "-"}{t.amount.toLocaleString()}
                 </td>
-                <td className="py-3 text-right space-x-3">
+                <td className="py-3 text-right px-4 space-x-3">
                   <button
                       onClick={() => setEditingTransaction(t)}
-                      className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                      className="text-blue-500 cursor-pointer hover:text-blue-700 text-sm font-medium"
                   >
                       Edit
                   </button>
                   <button
                       onClick={() => handleDelete(t.id!)}
-                      className="text-red-500 hover:text-red-700 text-sm font-medium"
+                      className="text-red-500 cursor-pointer hover:text-red-700 text-sm font-medium"
                   >
                       Delete
                   </button>
