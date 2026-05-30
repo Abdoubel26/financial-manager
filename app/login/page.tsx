@@ -21,7 +21,7 @@ function LoginPage() {
     e.preventDefault()
     setResponseMessage({ show: false, message: "", ok: false})
     if(authState === "login"){
-      const res = await fetch("http://localhost:3000/api/user/login", {
+      const res = await fetch("https://finances-trackr.netlify.app/api/user/login", {
         method: "POST",
         headers:{ "Content-Type": "application/json"},
         body: JSON.stringify({
@@ -41,7 +41,7 @@ function LoginPage() {
       }
     }
     else if(authState === "signup"){
-      const res = await fetch("http://localhost:3000/api/user/signup", {
+      const res = await fetch("https://finances-trackr.netlify.app/api/user/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json"},
         body: JSON.stringify({

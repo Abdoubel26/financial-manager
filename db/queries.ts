@@ -297,5 +297,3 @@ export const deleteCategory = async (id: string) => {
     return deletedCategory[0]
 }
 
-
-

@@ -6,13 +6,13 @@ export const PUT = async (req: Request) => {
 
     try {
 
-        const { id, name } = await req.json();
+        const { id, name, user_id } = await req.json();
 
         if(!id || !name ){
             return NextResponse.json({ message: "missing required fields"}, { status: 400});
         }
 
-        const updatedCategory = await updateCategory({ id, name});
+        const updatedCategory = await updateCategory({ id, name, user_id});
 
         if(!updatedCategory) return NextResponse.json({ message: "category not found"}, { status: 404});
 
